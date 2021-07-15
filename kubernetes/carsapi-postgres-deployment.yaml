@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: carsapi-postgres
+  namespace: cars-api
+  labels:
+    app-name: cars-api
+spec:
+  ports:
+    - name: dbport
+      protocol: TCP
+      port: 5432
+  selector:
+    app-name: cars-api
+    tier: sql
+  clusterIP: None
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: carsapi-postgres-pv
+  namespace: cars-api
+  labels:
+    app-name: cars-api
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: carsapi-postgres-deployment
+  namespace: cars-api
+  labels:
+    app-name: cars-api
+spec:
+  selector:
+    matchLabels:
+      app-name: cars-api
+      tier: sql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app-name: cars-api
+        tier: sql
+    spec:
+      containers:
+      - image: postgres:13
+        name: postgres
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-userpass
+              key: root_password
+        ports:
+        - containerPort: 5432
+          name: postgres
+        volumeMounts:
+        - name: postgres-persistent-storage
+          mountPath: /var/lib/postgres
+      volumes:
+      - name: postgres-persistent-storage
+        persistentVolumeClaim:
+          claimName: carsapi-postgres-pv
